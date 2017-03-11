@@ -213,6 +213,7 @@ class GetUser(Resource):
         # 返回信息
         information = verify.userdata['Information']
         information['id'] = str(verify.userdata['_id'])
+        information['username'] = str(verify.userdata['username'])
         success = {'success': True, 'user': information}
         return success
 
@@ -278,7 +279,7 @@ class Announce(Resource):
         parser.add_argument('token')
         parser.add_argument('title')
         parser.add_argument('text')
-        parser.add_argument('tag')  # List
+        parser.add_argument('tag', type=[])  # List
         parser.add_argument('type', type=int)
 
         args = parser.parse_args()
@@ -611,6 +612,8 @@ class BlackList(Resource):
         except:
             failure = {'success': False, 'error': '内部数据库错误'}
             return failure
+        success = {'success': True}
+        return success
 
 
 # 评论
