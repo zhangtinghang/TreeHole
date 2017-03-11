@@ -13,8 +13,10 @@ from flask_restful import Resource, Api, reqparse
 from flask_tokenauth import TokenAuth, TokenManager
 
 # 数据库初始化
-ssl = ''
+with open('ssl.txt', 'r') as f:
+    ssl = f.read()
 client = pymongo.MongoClient(ssl)
+print('数据库连接成功:' + str(client))
 db = client.treehole
 userData = db.userData
 announcement = db.announcement
