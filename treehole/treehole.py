@@ -481,7 +481,7 @@ class UploadImg(Resource):
         try:
             imageData = base64.b64decode(args['img'])
             imageName = shortuuid.uuid() + args['imgFormat']
-            imagePath = os.path.abspath(os.path.join(sys.path[0], os.pardir, 'images', imageName))
+            imagePath = os.path.abspath(os.path.join('/var/www/html/images', imageName))
             with open(imagePath, 'wb') as imageFile:
                 imageFile.write(imageData)
 
