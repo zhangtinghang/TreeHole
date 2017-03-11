@@ -13,7 +13,8 @@ from flask_restful import Resource, Api, reqparse
 from flask_tokenauth import TokenAuth, TokenManager
 
 # 数据库初始化
-client = pymongo.MongoClient('localhost', 27017)
+ssl = ''
+client = pymongo.MongoClient(ssl)
 db = client.treehole
 userData = db.userData
 announcement = db.announcement
