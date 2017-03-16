@@ -717,4 +717,4 @@ api.add_resource(PostComment, '/api/postComment')
 api.add_resource(GetComment, '/api/getComment')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='10.0.0.4', debug=True)
