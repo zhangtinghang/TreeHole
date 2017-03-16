@@ -279,7 +279,7 @@ class Announce(Resource):
         parser.add_argument('token')
         parser.add_argument('title')
         parser.add_argument('text')
-        parser.add_argument('tag', type=[])  # List
+        parser.add_argument('tag', type=list)  # List
         parser.add_argument('type', type=int)
 
         args = parser.parse_args()
@@ -717,4 +717,4 @@ api.add_resource(PostComment, '/api/postComment')
 api.add_resource(GetComment, '/api/getComment')
 
 if __name__ == '__main__':
-    app.run(host='10.0.0.4', debug=True)
+    app.run(debug=True)
