@@ -645,9 +645,9 @@ class PostComment(Resource):
             # 祖先
         searchParent = announcement.find_one({"_id": ObjectId(args['parent_ID'])})
         treeAncestors = searchParent['ancestors']
-        treeAncestors.append(args['parent_ID'])
+        treeAncestors.append(ObjectId(args['parent_ID']))
         # 父
-        treeParent = args['parent_ID']
+        treeParent = ObjectId(args['parent_ID'])
         upTime = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
         # 将评论写入db.announcement
         commentData = {'text': args['content'], 'username': verify.userdata['username'],
@@ -674,7 +674,7 @@ class GetComment(Resource):
         count = request.args.get('count', type=int)
         if count is None:
             count = 10
-        article_ID = request.args.get('article_ID')
+        article_ID = ObjectId(request.args.get('article_ID'))
 
         # 验证
         verify = Verify()
