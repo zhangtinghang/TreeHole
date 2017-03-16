@@ -698,7 +698,7 @@ class GetComment(Resource):
             failure = {'success': False, 'error': 'article_ID为空'}
             return failure
         else:
-            for item in announcement.find({'type': type, 'ancestors': ObjectId(article_ID)}).sort('_id', -1).limit(count):
+            for item in announcement.find({'type': type, 'ancestors': article_ID}).sort('_id', -1).limit(count):
                 item['_id'] = str(item['_id'])
                 article.append(item)
 
