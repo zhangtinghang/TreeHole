@@ -685,7 +685,8 @@ class GetComment(Resource):
         if count is None:
             count = 10
         article_ID = ObjectId(request.args.get('article_ID'))
-
+        
+        print(token + article_ID + count)
         # 验证
         verify = Verify()
         if verify.verify_token(token) is False or verify.verify_perm(0) is False:
