@@ -423,6 +423,16 @@ class GetArticle(Resource):
         return success
 
 
+# class SearchArticle(Resource):
+#     def get(self):
+#         token = request.args.get('token')
+#         type = request.args.get('type', type=int)
+#         count = request.args.get('count', type=int)
+#         if count is None:
+#             count = 10
+#         article_ID = request.args.get('article_ID')
+
+
 class GetLast(Resource):
     def get(self):
         token = request.args.get('token')
@@ -688,7 +698,7 @@ class GetComment(Resource):
             failure = {'success': False, 'error': 'article_ID为空'}
             return failure
         else:
-            for item in announcement.find({'type': type, 'ancestors': article_ID}).sort('_id', -1).limit(count):
+            for item in announcement.find({'type': type, 'ancestors': ObjectId(article_ID)}).sort('_id', -1).limit(count):
                 item['_id'] = str(item['_id'])
                 article.append(item)
 
