@@ -500,7 +500,8 @@ class UploadImg(Resource):
 
             imageURL = 'images/' + imageName
             success = {'success': True, 'imgURL': imageURL}
-        except:
+        except Exception as e:
+            print(e)
             failure = {'success': False, 'error': '上传失败'}
             return failure
         return success
@@ -686,7 +687,6 @@ class GetComment(Resource):
             count = 10
         article_ID = ObjectId(request.args.get('article_ID'))
 
-        print(str(article_ID) + str(count))
         # 验证
         verify = Verify()
         if verify.verify_token(token) is False or verify.verify_perm(0) is False:
