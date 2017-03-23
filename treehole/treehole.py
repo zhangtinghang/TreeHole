@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import base64
+import re
 
 import pymongo
 import shortuuid
@@ -475,7 +476,6 @@ class UploadImg(Resource):
         parser.add_argument('imgFormat')
 
         args = parser.parse_args()
-        print(type(args['img']))
 
         # 验证必要参数完整性
         verList = ['token', 'img', 'imgFormat']
@@ -491,10 +491,15 @@ class UploadImg(Resource):
             failure = {'success': False, 'error': verify.error}
             return failure
 
+        # 正则表达式处理imgdata
+        pattern = r'data:image/(.*);base64,(.*)'
+
+        s = re.search(pattern, args['img'])
+
         # 将图片解码并保存至images文件夹
         try:
-            imageData = base64.b64decode(args['img'])
-            imageName = shortuuid.uuid() + args['imgFormat']
+            imageData = s.group(2)
+            imageName = shortuuid.uuid() + s.group(1)
             imagePath = os.path.abspath(os.path.join('/var/www/html/images', imageName))
             with open(imagePath, 'wb') as imageFile:
                 imageFile.write(imageData)
