@@ -475,7 +475,7 @@ class UploadImg(Resource):
         parser.add_argument('imgFormat')
 
         args = parser.parse_args()
-        print(args['img'])
+        type(args['img'])
 
         # 验证必要参数完整性
         verList = ['token', 'img', 'imgFormat']
