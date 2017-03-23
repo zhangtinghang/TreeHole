@@ -498,7 +498,7 @@ class UploadImg(Resource):
 
         # 将图片解码并保存至images文件夹
         try:
-            imageData = s.group(2)
+            imageData = base64.b64decode(s.group(2))
             imageName = shortuuid.uuid() + s.group(1)
             imagePath = os.path.abspath(os.path.join('/var/www/html/images', imageName))
             with open(imagePath, 'wb') as imageFile:
