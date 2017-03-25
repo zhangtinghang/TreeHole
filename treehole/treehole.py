@@ -280,7 +280,7 @@ class Announce(Resource):
         parser.add_argument('token')
         parser.add_argument('title')
         parser.add_argument('text')
-        parser.add_argument('tag', type=list)  # List
+        parser.add_argument('tag')
         parser.add_argument('type', type=int)
 
         args = parser.parse_args()
