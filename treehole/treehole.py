@@ -12,6 +12,7 @@ from bson.objectid import ObjectId
 from flask import Flask, request, make_response
 from flask_restful import Resource, Api, reqparse
 from flask_tokenauth import TokenAuth, TokenManager
+from pymongo.son_manipulator import AutoReference, NamespaceInjector
 
 # 数据库初始化
 with open('ssl.txt', 'r') as f:
@@ -19,6 +20,11 @@ with open('ssl.txt', 'r') as f:
 client = pymongo.MongoClient(ssl)
 print('数据库连接成功:' + str(client))
 db = client.treehole
+
+# 自动解引用
+db.add_son_manipulator(NamespaceInjector())
+db.add_son_manipulator(AutoReference(db))
+
 userData = db.userData
 announcement = db.announcement
 
@@ -29,7 +35,12 @@ token_auth = TokenAuth(secret_key=secret_key)
 token_manager = TokenManager(secret_key=secret_key)
 permDict = {0: 'user', 1: 'class', 2: 'profession', 3: 'department', 4: 'college', 5: 'university', -1: 'system'}
 
+# 失败代码字典
+failure_dict = {1: "缺少必要参数", 2: "token已过期", 3: "用户名错误", 4: "密码错误", 5: "权限不足", 6: "该用户不存在",
+                7: "数据库中无此ID", 8: "上传失败"}
 
+
+# 跨域请求
 @api.representation('application/json')
 def output_json(data, code, headers=None):
     resp = make_response(json.dumps(data), code)
@@ -37,12 +48,63 @@ def output_json(data, code, headers=None):
     return resp
 
 
-# 数据库操作
-class DBOp(object):
-    # 通过username查找用户并返回userdata
-    def sUsername(self, username):
-        userdata = userData.find_one({'username': {'$regex': username, '$options': 'i'}})
+# 数据库常用方法， 返回类型均为SON类
+class DbTools(object):
+    """查询方法
+    """
+    """userData用
+    """
+    # 通过username查找用户并返回userdata, 不区分大小写
+    @staticmethod
+    def user_se_username(username):
+        userdata = userData.find_one({"username": {"$regex": username, "$options": "i"}})
         return userdata
+
+    # 通过objectId查找用户并返回userdata
+    @staticmethod
+    def user_se_objectid(id_):
+        userdata = userData.find_one({"_id": id_})
+        return userData
+    """announcement用
+    """
+    # 通过title查找文章并返回article
+    @staticmethod
+    def arti_se_title(title):
+        article = announcement.find_one({"title": title})
+        return article
+
+    # 通过objectId查找文章并返回article
+    @staticmethod
+    def arti_se_objectid(id_):
+        article = announcement.find_one({"_id": id_})
+        return article
+
+
+    # """更新方法
+    # """
+    # """userData用
+    # """
+    # # 通过key字典作为查询条件，通过传入的new_data字典来依次修改数据
+    # @staticmethod
+    # def user_update(key, new_data):
+    #     for i in new_data:
+    #         if
+
+
+# 自定义常用方法类
+class CustomTools(object):
+    # 验证参数完整性
+    @staticmethod
+    def ver_par_integrity(ver_list, args):
+        for i in ver_list:
+            if i is not True:
+                return False
+        return True
+
+    # 返回失败错误
+    @staticmethod
+    def failure(failure_dict_number):
+        return {"success": False, "error": failure_dict[failure_dict_number]}
 
 
 # 认证,需要改善算法
@@ -58,31 +120,30 @@ class Verify(object):
     def verify_token(self, token):
         self.username = token_manager.verify(token)
         if self.username is None:
-            self.error = 'token已过期'
+            self.error = failure_dict[2]
             return False
-
-        self.userdata = DBOp().sUsername(self.username)
+        self.userdata = DbTools.user_se_username(self.username)
         if self.userdata is not None:
             return True
         return False
 
     # 通常验证，用于登录获取token
     def verify_normal(self, username, password):
-        self.userdata = DBOp().sUsername(username)
+        self.userdata = DbTools.user_se_username(username)
         if self.userdata is None:
-            self.error = '用户名错误'
+            self.error = failure_dict[3]
             return False
         elif self.userdata['password'] == password:
             return True
         else:
-            self.error = '密码错误'
+            self.error = failure_dict[4]
             return False
 
     # 权限验证，用于限制用户操作
-    def verify_perm(self, type):
-        if self.userdata['permission'][permDict[type]]:  # 普通用户权限验证
+    def verify_perm(self, type_):
+        if self.userdata['permission'][permDict[type_]]:  # 普通用户权限验证
             return True
-        elif self.userdata['admin'] >= type or self.userdata['admin'] == -1:  # 管理员用户权限验证
+        elif self.userdata['admin'] >= type_ or self.userdata['admin'] == -1:  # 管理员用户权限验证
             return True
         self.error = '权限不足'
         return False
@@ -158,7 +219,7 @@ class Register(Resource):
                        'error': '答案不得为空'}
             return failure
 
-        if DBOp().sUsername(username) is None:  # 判断是否重名
+        if DbTools().user_se_username(username) is None:  # 判断是否重名
             newUser = {'username': username,
                        'password': password,
                        'problem_id': problem_id,
@@ -192,7 +253,7 @@ class RegisterUsername(Resource):
 
         args = parser.parse_args()
         username = args['username']
-        if DBOp().sUsername(username) is None:
+        if DbTools().user_se_username(username) is None:
             success = {'success': True}
             return success
         else:
@@ -204,72 +265,70 @@ class RegisterUsername(Resource):
 # 用户信息
 class GetUser(Resource):
     def get(self):
+        token = request.args.get("token")
         # 验证
-        token = request.args.get('token')
         verify = Verify()
         if verify.verify_token(token) is False or verify.verify_perm(0) is False:
-            failure = {'success': False, 'error': verify.error}
+            failure = {"success": False, "error": verify.error}
             return failure
 
         # 返回信息
-        information = verify.userdata['Information']
-        information['id'] = str(verify.userdata['_id'])
-        information['username'] = str(verify.userdata['username'])
-        success = {'success': True, 'user': information}
+        information = verify.userdata["Information"]
+        information["id"] = str(verify.userdata["_id"])
+        information["username"] = str(verify.userdata["username"])
+        success = {"success": True, "user": information}
         return success
 
 
 class Alter(Resource):
     def post(self):
         parser = reqparse.RequestParser()
-        parser.add_argument('token')
-        parser.add_argument('avatar')
-        parser.add_argument('nickname')
+        parser.add_argument("token")
+        parser.add_argument("avatar")
+        parser.add_argument("nickname")
 
         args = parser.parse_args()
         # 验证必要参数完整性
-        verList = ['token']
-        for x in verList:
-            if args[x] is None:
-                failure = {'success': False, 'error': '缺少必要参数'}
-                return failure
+        ver_list = ["token"]
+        if CustomTools.ver_par_integrity(ver_list, args) is False:
+            return CustomTools.failure(1)
 
         # 验证
-        token = args['token']
+        token = args["token"]
         verify = Verify()
         if verify.verify_token(token) is False or verify.verify_perm(0) is False:
-            failure = {'success': False, 'error': verify.error}
+            failure = {"success": False, "error": verify.error}
             return failure
 
         # 将新的数据update至数据库
-        del args['token']  # 删除token以防止token被update
-        imformList = ['avatar', 'nickname']
-        for x in imformList:  # 更新数据
+        del args["token"]  # 删除token以防止token被update
+        info_list = ["avatar", "nickname"]
+        for x in info_list:  # 更新数据
             if args[x] is not None:
-                docu = 'Information.' + x
-                userData.update({'username': verify.userdata['username']}, {'$set': {docu: args[x]}})
-        success = {'success': True}
+                docu = "Information." + x
+                userData.update({"_id": verify.userdata["_id"]}, {"$set": {docu: args[x]}})
+        success = {"success": True}
         return success
 
 
 class GetOtherUser(Resource):
     def get(self):
+        token = request.args.get("token")
+        user_id = request.args.get("id")
+
         # 验证
-        token = request.args.get('token')
-        userID = request.args.get('id')  # ID机制需要改善，暂时使用username
         verify = Verify()
         if verify.verify_token(token) is False or verify.verify_perm(0) is False:
-            failure = {'success': False, 'error': verify.error}
+            failure = {"success": False, "error": verify.error}
             return failure
 
-        userdata = DBOp().sUsername(userID)  # 改善后这里也要改
+        userdata = DbTools.user_se_objectid(user_id)
         if userdata is None:
-            failure = {'success': False, 'error': '该用户不存在'}
-            return failure
-        information = userdata['Information']
-        information['id'] = str(userdata['_id'])
+            return CustomTools.failure(6)
+        information = userdata["Information"]
+        information["id"] = str(userdata["_id"])
 
-        success = {'success': True, 'user': information}
+        success = {"success": True, "user": information}
         return success
 
 
@@ -277,37 +336,36 @@ class GetOtherUser(Resource):
 class Announce(Resource):
     def post(self):
         parser = reqparse.RequestParser()
-        parser.add_argument('token')
-        parser.add_argument('title')
-        parser.add_argument('text')
-        parser.add_argument('tag')
-        parser.add_argument('type', type=int)
+        parser.add_argument("token")
+        parser.add_argument("title")
+        parser.add_argument("text")
+        parser.add_argument("tag")
+        parser.add_argument("type", type=int)
 
         args = parser.parse_args()
         # 验证必要参数完整性
-        verList = ['token', 'title', 'text', 'tag', 'type']
-        for x in verList:
-            if args[x] is None:
-                failure = {'success': False, 'error': '缺少必要参数'}
-                return failure
+        ver_list = ["token", "title", "text", "tag", "type"]
+        if CustomTools.ver_par_integrity(ver_list, args) is False:
+            return CustomTools.failure(1)
         # 验证
-        token = args['token']
+        token = args["token"]
         verify = Verify()
-        if verify.verify_token(token) is False or verify.verify_perm(args['type']) is False:
-            failure = {'success': False, 'error': verify.error}
+        if verify.verify_token(token) is False or verify.verify_perm(args["type"]) is False:
+            failure = {"success": False, "error": verify.error}
             return failure
 
-        # 插入新文章
-        upTime = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
+        """插入新文章
+        """
+        up_time = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
         # 祖先数组树结构
-        article = {'title': args['title'], 'text': args['text'], 'username': verify.userdata['username'],
-                   'type': args['type'], 'date': upTime, 'tag': args['tag'],
-                   'detail': '', 'ancestors': [], 'parent': None}
+        article = {"title": args["title"], "text": args["text"], "userid": verify.userdata["_id"],
+                   "type": args["type"], "date": up_time, "tag": args["tag"],
+                   "detail": "", "click": 0, "ancestors": [], "parent": None}
         article_id = announcement.insert(article)
 
-        # 在该用户中添加该文章索引
-        userData.update({'username': verify.username},
-                        {'$push': {'Information.treehole': {'$each': [str(article_id)], '$position': 0}}})
+        # 在该用户中添加该文章引用
+        userData.update({"username": verify.username},
+                        {"$push": {"Information.treehole": {"$each": [article_id], "$position": 0}}})
 
         success = {'success': True}
         return success
@@ -316,89 +374,83 @@ class Announce(Resource):
 class DeleteArticle(Resource):
     def post(self):
         parser = reqparse.RequestParser()
-        parser.add_argument('token')
-        parser.add_argument('article_ID')
+        parser.add_argument("token")
+        parser.add_argument("article_ID")
 
         args = parser.parse_args()
         # 验证必要参数完整性
-        verList = ['token', 'article_ID']
-        for x in verList:
-            if args[x] is None:
-                failure = {'success': False, 'error': '缺少必要参数'}
-                return failure
-
+        ver_list = ["token", "article_ID"]
+        if CustomTools.ver_par_integrity(ver_list, args) is False:
+            return CustomTools.failure(1)
         # 验证
-        token = args['token']
+        token = args["token"]
         verify = Verify()
         if verify.verify_token(token) is False:
-            failure = {'success': False, 'error': verify.error}
+            failure = {"success": False, "error": verify.error}
             return failure
 
         # 删除操作
-        article = db.announcement.find_one({'_id': ObjectId(args['article_ID'])})
+        article = db.announcement.find_one({"_id": ObjectId(args["article_ID"])})
         if article is None:
-            failure = {'success': False, 'error': '没有找到该文章'}
-            return failure
+            return CustomTools.failure(7)
             # 权限验证
-        if article['username'] == verify.userdata['username'] or verify.verify_perm(article['type']):
-            announcement.remove({'_id': ObjectId(args['article_ID'])})
+        if article["userid"] == verify.userdata["_id"] or verify.verify_perm(article["type"]):
+            announcement.remove({"_id": article["_id"]})
+            # 从用户数据移除引用
+            userData.update({"_id": article["userid"]},
+                            {"$pull": {"Information.treehole": article["_id"]}})
             success = {'success': True}
             return success
         else:
-            failure = {'success': False, 'error': '权限不足'}
-            return failure
+            return CustomTools.failure(5)
 
 
 class AlterArticle(Resource):
     def post(self):
         parser = reqparse.RequestParser()
-        parser.add_argument('token')
-        parser.add_argument('article_ID')
-        parser.add_argument('title')
-        parser.add_argument('text')
-        parser.add_argument('tag')
-        parser.add_argument('type', type=int)
+        parser.add_argument("token")
+        parser.add_argument("article_ID")
+        parser.add_argument("title")
+        parser.add_argument("text")
+        parser.add_argument("tag")
+        parser.add_argument("type", type=int)
 
         args = parser.parse_args()
         # 验证必要参数完整性
-        verList = ['token', 'article_ID', 'title', 'text', 'type', 'tag']
-        for x in verList:
-            if args[x] is None:
-                failure = {'success': False, 'error': '缺少必要参数'}
-                return failure
+        ver_list = ["token", "article_ID", "title", "text", "type", "tag"]
+        if CustomTools.ver_par_integrity(ver_list, args) is False:
+            return CustomTools.failure(1)
 
         # 验证
-        token = args['token']
+        token = args["token"]
         verify = Verify()
-        if verify.verify_token(token) is False or verify.verify_perm(args['type']) is False:
-            failure = {'success': False, 'error': verify.error}
+        if verify.verify_token(token) is False or verify.verify_perm(args["type"]) is False:
+            failure = {"success": False, "error": verify.error}
             return failure
 
         # 修改操作
-        article = db.announcement.find_one({'_id': ObjectId(args['article_ID'])})
+        article = db.announcement.find_one({"_id": ObjectId(args["article_ID"])})
         if article is None:
-            failure = {'success': False, 'error': '没有找到该文章'}
-            return failure
-        if article['username'] == verify.userdata['username'] or verify.verify_perm(args['type']):
-            articleList = ['title', 'text', 'type', 'tag']
-            for x in articleList:
+            return CustomTools.failure(7)
+        if article["userid"] == verify.userdata["_id"] or verify.verify_perm(args["type"]):
+            article_list = ["title", "text", "type", "tag"]
+            for x in article_list:
                 if args[x] is not None:
-                    announcement.update({'_id': ObjectId(args['article_ID'])}, {'$set': {x: args[x]}})
-            success = {'success': True}
+                    announcement.update({"_id": article["_id"]}, {"$set": {x: args[x]}})
+            success = {"success": True}
             return success
         else:
-            failure = {'success': False, 'error': '权限不足'}
-            return failure
+            return CustomTools.failure(5)
 
 
 class GetArticle(Resource):
     def get(self):
-        token = request.args.get('token')
-        type = request.args.get('type', type=int)
+        token = request.args.get("token")
+        type_ = request.args.get("type", type=int)
         count = request.args.get('count', type=int)
         if count is None:
             count = 10
-        article_ID = request.args.get('article_ID')
+        article_id = request.args.get('article_ID')
 
         # 验证
         verify = Verify()
@@ -409,13 +461,13 @@ class GetArticle(Resource):
         # 文章结构初始化
         article = []
         # 获取
-        if article_ID is None:
-            for item in announcement.find({'type': type}).sort('_id', -1).limit(count):
+        if article_id is None:
+            for item in announcement.find({'type': type_}).sort('_id', -1).limit(count):
                 item['_id'] = str(item['_id'])
                 article.append(item)
         else:
-            for item in announcement.find({'_id': {'$lt': ObjectId(article_ID)}, 'type': type}).limit(count).sort('_id',
-                                                                                                                  -1):
+            for item in announcement.find({'_id': {'$lt': ObjectId(article_id)}, 'type': type_}).\
+                    limit(count).sort('_id', -1):
                 item['_id'] = str(item['_id'])
                 article.append(item)
 
@@ -437,11 +489,11 @@ class GetArticle(Resource):
 class GetLast(Resource):
     def get(self):
         token = request.args.get('token')
-        type = request.args.get('type', type=int)
+        type_ = request.args.get('type', type=int)
         count = request.args.get('count', type=int)
         if count is None:
             count = 10
-        article_ID = request.args.get('article_ID')
+        article_id = request.args.get('article_ID')
 
         # 验证
         verify = Verify()
@@ -451,12 +503,12 @@ class GetLast(Resource):
 
         article = []
         # 获取
-        if article_ID is None:
-            for item in announcement.find({'type': type}).sort('_id', -1).limit(count):
+        if article_id is None:
+            for item in announcement.find({'type': type_}).sort('_id', -1).limit(count):
                 item['_id'] = str(item['_id'])
                 article.append(item)
         else:
-            for item in announcement.find({'_id': {'$gt': ObjectId(article_ID)}, 'type': type}).sort('_id', -1):
+            for item in announcement.find({'_id': {'$gt': ObjectId(article_id)}, 'type': type_}).sort('_id', -1):
                 item['_id'] = str(item['_id'])
                 article.append(item)
 
@@ -478,11 +530,9 @@ class UploadImg(Resource):
         args = parser.parse_args()
 
         # 验证必要参数完整性
-        verList = ['token', 'img', 'imgFormat']
-        for x in verList:
-            if args[x] is None:
-                failure = {'success': False, 'error': '缺少必要参数'}
-                return failure
+        ver_list = ['token', 'img', 'imgFormat']
+        if CustomTools.ver_par_integrity(ver_list, args) is False:
+            return CustomTools.failure(1)
 
         # 验证
         token = args['token']
@@ -495,21 +545,19 @@ class UploadImg(Resource):
         pattern = r'data:image/(.*);base64,(.*)'
 
         s = re.search(pattern, args['img'])
-
         # 将图片解码并保存至images文件夹
         try:
-            imageData = base64.b64decode(s.group(2))
-            imageName = shortuuid.uuid() + "." + s.group(1)
-            imagePath = os.path.abspath(os.path.join('/var/www/html/images', imageName))
-            with open(imagePath, 'wb') as imageFile:
-                imageFile.write(imageData)
+            image_data = base64.b64decode(s.group(2))
+            image_name = shortuuid.uuid() + "." + s.group(1)
+            image_path = os.path.abspath(os.path.join('/var/www/html/images', image_name))
+            with open(image_path, 'wb') as imageFile:
+                imageFile.write(image_data)
 
-            imageURL = 'images/' + imageName
-            success = {'success': True, 'imgURL': imageURL}
+            image_url = 'images/' + image_name
+            success = {'success': True, 'imgURL': image_url}
         except Exception as e:
             print(e)
-            failure = {'success': False, 'error': '上传失败'}
-            return failure
+            return CustomTools.failure(8)
         return success
 
 
@@ -517,38 +565,39 @@ class UploadImg(Resource):
 class Follow(Resource):
     def post(self):
         parser = reqparse.RequestParser()
-        parser.add_argument('token')
-        parser.add_argument('username')
+        parser.add_argument("token")
+        parser.add_argument("userid")
 
         args = parser.parse_args()
 
+        args["userid"] = ObjectId(args["userid"])  # 将str的userid装换成objectid
         # 验证参数完整性
-        verList = ['token', 'username']
-        for x in verList:
-            if args[x] is None:
-                failure = {'success': False, 'error': '缺少必要参数'}
-                return failure
+        ver_list = ["token", "userid"]
+        if CustomTools.ver_par_integrity(ver_list, args) is False:
+            return CustomTools.failure(1)
 
         # 验证
-        token = args['token']
+        token = args["token"]
         verify = Verify()
         if verify.verify_token(token) is False:
             failure = {'success': False, 'error': verify.error}
             return failure
         try:
             # 检测关注方是否被被关注方拉黑
-            temp = DBOp().sUsername(args['username'])
-            if args['username'] in temp['Information']['blacklist']:
+            temp = DbTools.user_se_username(args["userid"])
+            if args["userid"] in temp['Information']['blacklist']:
                 failure = {'success': False, 'error': '你已被屏蔽'}
                 return failure
             # 给关注方添加following
-            userData.update({'username': verify.username},
-                            {'$push': {'Information.following': {'$each': [args['username']], '$position': 0}}})
+            userData.update({'_id': verify.userdata["_id"]},
+                            {'$push': {'Information.following': {'$each': [args["userid"]], '$position': 0}}})
 
             # 给被关注方添加followed
-            userData.update({'username': args['username']},
-                            {'$push': {'Information.followed': {'$each': [verify.username], '$position': 0}}})
-        except:
+            userData.update({'_id': args['userid']},
+                            {'$push': {'Information.followed': {'$each': [verify.userdata["_id"]],
+                                                                '$position': 0}}})
+        except Exception as e:
+            print(e)
             failure = {'success': False, 'error': '内部数据库错误'}
             return failure
 
@@ -559,20 +608,18 @@ class Follow(Resource):
 class UnFollow(Resource):
     def post(self):
         parser = reqparse.RequestParser()
-        parser.add_argument('token')
-        parser.add_argument('username')
+        parser.add_argument("token")
+        parser.add_argument("userid")
 
         args = parser.parse_args()
-
+        args["userid"] = ObjectId(args["userid"])  # 将str的userid装换成objectid
         # 验证参数完整性
-        verList = ['token', 'username']
-        for x in verList:
-            if args[x] is None:
-                failure = {'success': False, 'error': '缺少必要参数'}
-                return failure
+        ver_list = ["token", "userid"]
+        if CustomTools.ver_par_integrity(ver_list, args) is False:
+            return CustomTools.failure(1)
 
         # 验证
-        token = args['token']
+        token = args["token"]
         verify = Verify()
         if verify.verify_token(token) is False:
             failure = {'success': False, 'error': verify.error}
@@ -580,12 +627,12 @@ class UnFollow(Resource):
 
         try:
             # 关注方删除following
-            userData.update({'username': verify.username},
-                            {"$pull": {"Information.following": args['username']}})
+            userData.update({"_id": verify.userdata["_id"]},
+                            {"$pull": {"Information.following": args["userid"]}})
 
             # 被关注方删除followed
-            userData.update({'username': args['username']},
-                            {"$pull": {"Information.followed": verify.username}})
+            userData.update({"_id": args["userid"]},
+                            {"$pull": {"Information.followed": verify.userdata["_id"]}})
         except:
             failure = {'success': False, 'error': '内部数据库错误'}
             return failure
@@ -597,16 +644,16 @@ class UnFollow(Resource):
 class BlackList(Resource):
     def post(self):
         parser = reqparse.RequestParser()
-        parser.add_argument('token')
-        parser.add_argument('username')
+        parser.add_argument("token")
+        parser.add_argument("userid")
 
         args = parser.parse_args()
+        args["userid"] = ObjectId(args["userid"])  # 将str的userid装换成objectid
         # 验证参数完整性
-        verList = ['token', 'username']
-        for x in verList:
-            if args[x] is None:
-                failure = {'success': False, 'error': '缺少必要参数'}
-                return failure
+        ver_list = ["token", "userid"]
+        if CustomTools.ver_par_integrity(ver_list, args) is False:
+            return CustomTools.failure(1)
+
         # 验证
         token = args['token']
         verify = Verify()
@@ -616,16 +663,16 @@ class BlackList(Resource):
 
         try:
             # 拉黑方删除followed
-            userData.update({'username': verify.username},
-                            {"$pull": {"Information.followed": args['username']}})
+            userData.update({"_id": verify.userdata["_id"]},
+                            {"$pull": {"Information.followed": args["userid"]}})
 
             # 被拉黑删除following
-            userData.update({'username': args['username']},
-                            {"$pull": {"Information.following": verify.username}})
+            userData.update({"_id": args["userid"]},
+                            {"$pull": {"Information.following": verify.userdata["_id"]}})
 
             # 将被拉黑方放加入blacklist
-            userData.update({'username': verify.username},
-                            {'$push': {'Information.blacklist': {'$each': [args['username']], '$position': 0}}})
+            userData.update({"_id": verify.userdata["_id"]},
+                            {'$push': {'Information.blacklist': {'$each': [args["userid"]], '$position': 0}}})
         except:
             failure = {'success': False, 'error': '内部数据库错误'}
             return failure
@@ -645,11 +692,9 @@ class PostComment(Resource):
         args = parser.parse_args()
 
         # 验证参数完整性
-        verList = ['article_ID', 'parent_ID', 'username', 'content']
-        for x in verList:
-            if args[x] is None:
-                failure = {'success': False, 'error': '缺少必要参数'}
-                return failure
+        ver_list = ['article_ID', 'parent_ID', 'username', 'content']
+        if CustomTools.ver_par_integrity(ver_list, args) is False:
+            return CustomTools.failure(1)
 
         # 验证
         token = args['token']
