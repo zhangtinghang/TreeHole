@@ -487,18 +487,18 @@ class GetArticle(Resource):
 
 class GetLast(Resource):
     def get(self):
-        token = request.args.get('token')
+        # token = request.args.get('token')
         type_ = request.args.get('type', type=int)
         count = request.args.get('count', type=int)
         if count is None:
             count = 10
         article_id = request.args.get('article_ID')
 
-        # 验证
-        verify = Verify()
-        if verify.verify_token(token) is False or verify.verify_perm(0) == False:
-            failure = {'success': False, 'error': verify.error}
-            return failure
+        # # 验证
+        # verify = Verify()
+        # if verify.verify_token(token) is False or verify.verify_perm(0) is False:
+        #     failure = {'success': False, 'error': verify.error}
+        #     return failure
 
         article = []
         # 获取
