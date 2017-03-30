@@ -8,10 +8,12 @@ import pymongo
 import shortuuid
 
 from bson.objectid import ObjectId
+from bson.son import SON
 from flask import Flask, request, make_response
 from flask_restful import Resource, Api, reqparse
 from flask_tokenauth import TokenAuth, TokenManager
 from pymongo.son_manipulator import AutoReference, NamespaceInjector
+from pymongo.database import DBRef
 
 # 数据库初始化
 with open('ssl.txt', 'r') as f:
@@ -19,13 +21,16 @@ with open('ssl.txt', 'r') as f:
 client = pymongo.MongoClient(ssl)
 print('数据库连接成功:' + str(client))
 db = client.treehole
-
-# 自动解引用
-db.add_son_manipulator(NamespaceInjector())
-db.add_son_manipulator(AutoReference(db))
-
 userData = db.userData
 announcement = db.announcement
+
+
+# # 自动解引用
+"""如果有循环引用使用AutoReference会导致RecursionError， 需要在特定情况下使用
+"""
+db.add_son_manipulator(NamespaceInjector())
+# db.add_son_manipulator(AutoReference(db))
+
 
 app = Flask(__name__)
 api = Api(app)
@@ -63,7 +68,7 @@ class DbTools(object):
     @staticmethod
     def user_se_objectid(id_):
         userdata = userData.find_one({"_id": id_})
-        return userData
+        return userdata
     """announcement用
     """
     # 通过title查找文章并返回article
@@ -89,8 +94,17 @@ class DbTools(object):
     #     for i in new_data:
     #         if
 
+    """批量解引用
+    """
+    @staticmethod
+    def bat_deref(ref_list):
+        deref_list = []
+        for i in ref_list:
+            deref_list.append(db.dereference(i))
+        return deref_list
 
-# 自定义常用方法类
+
+# 自定义常用工具
 class CustomTools(object):
     # 验证参数完整性
     @staticmethod
@@ -105,8 +119,49 @@ class CustomTools(object):
     def failure(failure_dict_number):
         return {"success": False, "error": failure_dict[failure_dict_number]}
 
+    # 解引用后把ObjectID转成str后返回
+    @staticmethod
+    def get_deref_with_strid(ref):
+        deref = db.dereference(ref)
+        return deref
 
-# 认证,需要改善算法
+    # 解引用userdata并且把里面的敏感内容删除和ObjectID转成str后返回(GetOtherUser API格式)
+    @staticmethod
+    def get_deref_userdata(ref):
+        deref = db.dereference(ref)
+        deref_data = deref["Information"]
+        deref_data["id"] = str(deref["_id"])
+        deref_data["username"] = deref["username"]
+        return deref_data
+
+    # 批量解引用userdata并且把里面的敏感内容删除后返回(GetOtherUser API格式)
+    @staticmethod
+    def batch_get_deref_userdata(ref_list):
+        deref_list = []
+        for i in ref_list:
+            CustomTools.get_deref_userdata(i)
+        return deref_list
+
+    # 用户信息批量解引用
+    @staticmethod
+    def batch_deref_info(ref_info):
+        # 解引用following
+        ref_info["following"] = CustomTools.batch_get_deref_userdata(ref_info["following"])
+        ref_info["followed"] = CustomTools.batch_get_deref_userdata(ref_info["followed"])
+        ref_info["blacklist"] = CustomTools.batch_get_deref_userdata(ref_info["blacklist"])
+        ref_info["treehole"] = ref_info[0:10]  # 只保留前10条数据
+        ref_info["treehole"] = CustomTools.batch_get_deref_userdata(ref_info["treehole"])
+
+    # 子评论批量解引用
+    @staticmethod
+    def batch_deref_children(ref_children):
+        deref_list = []
+        for i in ref_children:
+            deref_list.append(CustomTools.get_deref_with_strid(i))
+        return deref_list
+
+
+# 认证,别改了
 class Token(object):
     def get_token(self, username):
         token = token_manager.generate(username, 2592000)
@@ -151,18 +206,18 @@ class Verify(object):
 # 消息
 class Message(object):
     @staticmethod
-    def message_add(object_id, username):
-        userData.update({'username': username},
-                        {'$push': {'Information.message': {'$each': object_id, '$position': 0}}})
+    def message_add(ref_id, userid):
+        userData.update({'_id': userid},
+                        {'$push': {'Information.message': {'$each': ref_id, '$position': 0}}})
 
     @staticmethod
-    def message_del(object_id, username):
-        userData.update({'username': username},
-                        {"$pull": {"Information.message": object_id}})
+    def message_del(ref_id, userid):
+        userData.update({'_id': userid},
+                        {"$pull": {"Information.message": ref_id}})
 
     @staticmethod
-    def message_clear(username):
-        userData.update({'username': username},
+    def message_clear(userid):
+        userData.update({'_id': userid},
                         {'$set': {"Information.message": []}})
 
 
@@ -219,22 +274,22 @@ class Register(Resource):
             return failure
 
         if DbTools().user_se_username(username) is None:  # 判断是否重名
-            newUser = {'username': username,
-                       'password': password,
-                       'problem_id': problem_id,
-                       'answer': answer,
-                       'Information': {'avatar': 1,
-                                       'nickname': 'none',
-                                       'following': [],
-                                       'followed': [],
-                                       'treehole': [],
-                                       'blacklist': [],
-                                       'message': []
-                                       },
-                       'permission': {'user': True},
-                       'admin': 0
-                       }
-            userData.insert(newUser)
+            new_user = {'username': username,
+                        'password': password,
+                        'problem_id': problem_id,
+                        'answer': answer,
+                        'Information': {'avatar': 1,
+                                        'nickname': 'none',
+                                        'following': [],
+                                        'followed': [],
+                                        'treehole': [],
+                                        'blacklist': [],
+                                        'message': []
+                                        },
+                        'permission': {'user': True},
+                        'admin': 0
+                        }
+            userData.insert(new_user)
             token = Token()
             success = {'success': True,
                        'token': token.get_token(username).decode()}
@@ -273,6 +328,7 @@ class GetUser(Resource):
 
         # 返回信息
         information = verify.userdata["Information"]
+        CustomTools.batch_deref_info(information)
         information["id"] = str(verify.userdata["_id"])
         information["username"] = str(verify.userdata["username"])
         success = {"success": True, "user": information}
@@ -325,6 +381,7 @@ class GetOtherUser(Resource):
         if userdata is None:
             return CustomTools.failure(6)
         information = userdata["Information"]
+        CustomTools.batch_deref_info(information)
         information["id"] = str(userdata["_id"])
 
         success = {"success": True, "user": information}
@@ -339,6 +396,7 @@ class Announce(Resource):
         parser.add_argument("title")
         parser.add_argument("text")
         parser.add_argument("tag")
+        parser.add_argument("extra", type=list)
         parser.add_argument("type", type=int)
 
         args = parser.parse_args()
@@ -346,6 +404,8 @@ class Announce(Resource):
         ver_list = ["token", "title", "text", "tag", "type"]
         if CustomTools.ver_par_integrity(ver_list, args) is False:
             return CustomTools.failure(1)
+        if args["extra"] is not True:
+            args["extra"] = []
         # 验证
         token = args["token"]
         verify = Verify()
@@ -357,14 +417,17 @@ class Announce(Resource):
         """
         up_time = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
         # 祖先数组树结构
-        article = {"title": args["title"], "text": args["text"], "userid": verify.userdata["_id"],
+        user_ref = DBRef(collection="userData", id=verify.userdata["_id"])
+        article = {"title": args["title"], "text": args["text"], "user": user_ref,
                    "type": args["type"], "date": up_time, "tag": args["tag"],
-                   "detail": "", "click": 0, "ancestors": [], "parent": None}
+                   "extra": args["extra"], "click": 0,
+                   "ancestor": None, "parent": None, "children": []}
         article_id = announcement.insert(article)
 
         # 在该用户中添加该文章引用
-        userData.update({"username": verify.username},
-                        {"$push": {"Information.treehole": {"$each": [article_id], "$position": 0}}})
+        article_ref = DBRef(collection="announcement", id=article_id)
+        userData.update({"_id": verify.userdata["_id"]},
+                        {"$push": {"Information.treehole": {"$each": [article_ref], "$position": 0}}})
 
         success = {'success': True}
         return success
@@ -413,11 +476,13 @@ class AlterArticle(Resource):
         parser.add_argument("text")
         parser.add_argument("tag")
         parser.add_argument("type", type=int)
+        parser.add_argument("extra", type=list)
 
         args = parser.parse_args()
+
         # 验证必要参数完整性
-        ver_list = ["token", "article_ID", "title", "text", "type", "tag"]
-        if CustomTools.ver_par_integrity(ver_list, args) is False:
+        ver_list = ["token", "article_ID", "title", "text", "type", "tag", "extra"]
+        if CustomTools.ver_par_integrity(ver_list, args) is not True:
             return CustomTools.failure(1)
 
         # 验证
@@ -432,7 +497,7 @@ class AlterArticle(Resource):
         if article is None:
             return CustomTools.failure(7)
         if article["userid"] == verify.userdata["_id"] or verify.verify_perm(args["type"]):
-            article_list = ["title", "text", "type", "tag"]
+            article_list = ["title", "text", "type", "tag", "extra"]
             for x in article_list:
                 if args[x] is not None:
                     announcement.update({"_id": article["_id"]}, {"$set": {x: args[x]}})
@@ -444,18 +509,18 @@ class AlterArticle(Resource):
 
 class GetArticle(Resource):
     def get(self):
-        token = request.args.get("token")
+        # token = request.args.get("token")
         type_ = request.args.get("type", type=int)
         count = request.args.get('count', type=int)
         if count is None:
             count = 10
         article_id = request.args.get('article_ID')
 
-        # 验证
-        verify = Verify()
-        if verify.verify_token(token) is False or verify.verify_perm(0) is False:
-            failure = {'success': False, 'error': verify.error}
-            return failure
+        # # 验证
+        # verify = Verify()
+        # if verify.verify_token(token) is False or verify.verify_perm(0) is False:
+        #     failure = {'success': False, 'error': verify.error}
+        #     return failure
 
         # 文章结构初始化
         article = []
@@ -463,11 +528,13 @@ class GetArticle(Resource):
         if article_id is None:
             for item in announcement.find({'type': type_}).sort('_id', -1).limit(count):
                 item['_id'] = str(item['_id'])
+                item['user'] = CustomTools.get_deref_userdata(item['user'])
                 article.append(item)
         else:
             for item in announcement.find({'_id': {'$lt': ObjectId(article_id)}, 'type': type_}).\
                     limit(count).sort('_id', -1):
                 item['_id'] = str(item['_id'])
+                item['user'] = CustomTools.get_deref_userdata(item['user'])
                 article.append(item)
 
         article.reverse()  # list倒序，不知道为什么前端那边会把数据倒置。
@@ -475,14 +542,25 @@ class GetArticle(Resource):
         return success
 
 
-# class SearchArticle(Resource):
-#     def get(self):
-#         token = request.args.get('token')
-#         type = request.args.get('type', type=int)
-#         count = request.args.get('count', type=int)
-#         if count is None:
-#             count = 10
-#         article_ID = request.args.get('article_ID')
+class GetOneArticle(Resource):
+    def get(self):
+        # token = request.args.get('token')
+        article_ID = request.args.get('article_ID')
+
+        # 验证参数完整性
+        if article_ID is not True:
+            return CustomTools.failure(1)
+
+        # # 验证
+        # verify = Verify()
+        # if verify.verify_token(token) is False or verify.verify_perm(0) is False:
+        #     failure = {'success': False, 'error': verify.error}
+        #     return failure
+
+        # 获取
+        article = DbTools.arti_se_objectid(ObjectId(article_ID))
+        success = {'success': True, 'article': article}
+        return success
 
 
 class GetLast(Resource):
@@ -505,10 +583,12 @@ class GetLast(Resource):
         if article_id is None:
             for item in announcement.find({'type': type_}).sort('_id', -1).limit(count):
                 item['_id'] = str(item['_id'])
+                item['user'] = CustomTools.get_deref_userdata(item['user'])
                 article.append(item)
         else:
             for item in announcement.find({'_id': {'$gt': ObjectId(article_id)}, 'type': type_}).sort('_id', -1):
                 item['_id'] = str(item['_id'])
+                item['user'] = CustomTools.get_deref_userdata(item['user'])
                 article.append(item)
 
         if len(article) == 0:
@@ -584,17 +664,19 @@ class Follow(Resource):
         try:
             # 检测关注方是否被被关注方拉黑
             temp = DbTools.user_se_username(args["userid"])
-            if args["userid"] in temp['Information']['blacklist']:
+            blacklist = CustomTools.batch_get_deref_userdata(temp['Information']['blacklist'])
+            if args["userid"] in blacklist:
                 failure = {'success': False, 'error': '你已被屏蔽'}
                 return failure
             # 给关注方添加following
+            ref_user = DBRef(collection="userData", id=args["userid"])
             userData.update({'_id': verify.userdata["_id"]},
-                            {'$push': {'Information.following': {'$each': [args["userid"]], '$position': 0}}})
+                            {'$push': {'Information.following': {'$each': [ref_user], '$position': 0}}})
 
             # 给被关注方添加followed
+            ref_user = DBRef(collection="userData", id=verify.userdata["_id"])
             userData.update({'_id': args['userid']},
-                            {'$push': {'Information.followed': {'$each': [verify.userdata["_id"]],
-                                                                '$position': 0}}})
+                            {'$push': {'Information.followed': {'$each': [ref_user], '$position': 0}}})
         except Exception as e:
             print(e)
             failure = {'success': False, 'error': '内部数据库错误'}
@@ -626,12 +708,14 @@ class UnFollow(Resource):
 
         try:
             # 关注方删除following
+            ref_user = DBRef(collection="userData", id=args["userid"])
             userData.update({"_id": verify.userdata["_id"]},
-                            {"$pull": {"Information.following": args["userid"]}})
+                            {"$pull": {"Information.following": ref_user}})
 
             # 被关注方删除followed
+            ref_user = DBRef(collection="userData", id=verify.userdata["_id"])
             userData.update({"_id": args["userid"]},
-                            {"$pull": {"Information.followed": verify.userdata["_id"]}})
+                            {"$pull": {"Information.followed": ref_user}})
         except:
             failure = {'success': False, 'error': '内部数据库错误'}
             return failure
@@ -662,16 +746,19 @@ class BlackList(Resource):
 
         try:
             # 拉黑方删除followed
+            ref_user = DBRef(collection="userData", id=args["userid"])
             userData.update({"_id": verify.userdata["_id"]},
-                            {"$pull": {"Information.followed": args["userid"]}})
+                            {"$pull": {"Information.followed": ref_user}})
 
             # 被拉黑删除following
+            ref_user = DBRef(collection="userData", id=verify.userdata["_id"])
             userData.update({"_id": args["userid"]},
-                            {"$pull": {"Information.following": verify.userdata["_id"]}})
+                            {"$pull": {"Information.following": ref_user}})
 
             # 将被拉黑方放加入blacklist
+            ref_user = DBRef(collection="userData", id=args["userid"])
             userData.update({"_id": verify.userdata["_id"]},
-                            {'$push': {'Information.blacklist': {'$each': [args["userid"]], '$position': 0}}})
+                            {'$push': {'Information.blacklist': {'$each': [ref_user], '$position': 0}}})
         except:
             failure = {'success': False, 'error': '内部数据库错误'}
             return failure
@@ -690,6 +777,8 @@ class PostComment(Resource):
 
         args = parser.parse_args()
 
+        args["article_ID"] = ObjectId(args["article_ID"])
+        args["parent_ID"] = ObjectId(args["parent_ID"])
         # 验证参数完整性
         ver_list = ['article_ID', 'parent_ID', 'username', 'content']
         if CustomTools.ver_par_integrity(ver_list, args) is False:
@@ -702,25 +791,29 @@ class PostComment(Resource):
             failure = {'success': False, 'error': verify.error}
             return failure
 
-            # 生成祖先数组需要的元素
-            # 祖先
-        searchParent = announcement.find_one({"_id": ObjectId(args['parent_ID'])})
-        treeAncestors = searchParent['ancestors']
-        treeAncestors.append(ObjectId(args['parent_ID']))
-        # 父
-        treeParent = ObjectId(args['parent_ID'])
+        # 生成引用
+        ref_parent = DBRef(collection="announcement", id=args["parent_ID"])
+        ref_ancestor = DBRef(collection="announcement", id=args["article_ID"])
         upTime = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
+
         # 将评论写入db.announcement
-        commentData = {'text': args['content'], 'username': verify.userdata['username'],
-                       'type': None, 'date': upTime,
-                       'ancestors': treeAncestors, 'parent': treeParent}
+        comment_data = {'text': args['content'], 'user': verify.userdata['_id'],
+                        'type': None, 'date': upTime,
+                        'ancestor': args["article_ID"], 'parent': ref_parent, 'children': []}
         try:
-            id_ = announcement.insert(commentData)
+            id_ = announcement.insert(comment_data)
+            ref_id = DBRef(collection="announcement", id=id_)
+            # 写入成功后将此评论的引用提交给父评论
+            announcement.update({"_id": args["parent_ID"]},
+                                {"$push": {"children": {"$each": ref_id, "$position": 0}}})
             # 发送至消息提示至父评论作者以及文章作者
             if args['article_ID'] != args['parent_ID']:  # 防止给作者发两次消息
-                author = announcement.find_one({"_id": ObjectId(args['article_ID'])})
-                Message.message_add(str(id_), author('username'))
-            Message.message_add(str(id_), searchParent['username'])
+                ref_author = announcement.find_one({"_id": ObjectId(args['article_ID'])})
+                author = db.dereference(ref_author)
+                Message.message_add(ref_id, author['_id'])
+
+            par_author = db.dereference(ref_parent)
+            Message.message_add(ref_id, par_author['_id'])
         except:
             failure = {'success': False, 'error': '内部数据库错误'}
             return failure
@@ -730,27 +823,28 @@ class PostComment(Resource):
 
 class GetComment(Resource):
     def get(self):
-        token = request.args.get('token')
-        type = None
+        # token = request.args.get('token')
+        type_ = None
         count = request.args.get('count', type=int)
         if count is None:
             count = 10
-        article_ID = ObjectId(request.args.get('article_ID'))
+        article_id = ObjectId(request.args.get('article_ID'))
 
-        # 验证
-        verify = Verify()
-        if verify.verify_token(token) is False or verify.verify_perm(0) is False:
-            failure = {'success': False, 'error': verify.error}
-            return failure
+        # # 验证
+        # verify = Verify()
+        # if verify.verify_token(token) is False or verify.verify_perm(0) is False:
+        #     failure = {'success': False, 'error': verify.error}
+        #     return failure
 
         article = []
         # 获取
-        if article_ID is None:
+        if article_id is None:
             failure = {'success': False, 'error': 'article_ID为空'}
             return failure
         else:
-            for item in announcement.find({'type': type, 'ancestors': article_ID}).sort('_id', -1).limit(count):
+            for item in announcement.find({'type': type_, 'ancestor': article_id}).sort('_id', -1).limit(count):
                 item['_id'] = str(item['_id'])
+                item["children"] = CustomTools.batch_deref_children(item["children"])
                 article.append(item)
 
         if len(article) == 0:
@@ -769,6 +863,7 @@ api.add_resource(Announce, '/api/announce')
 api.add_resource(DeleteArticle, '/api/deleteArticle')
 api.add_resource(AlterArticle, '/api/alterArticle')
 api.add_resource(GetArticle, '/api/getArticle')
+api.add_resource(GetOneArticle, '/api/getOneArticle')
 api.add_resource(GetLast, '/api/getLast')
 api.add_resource(UploadImg, '/api/uploadImg')
 api.add_resource(Follow, '/api/follow')
