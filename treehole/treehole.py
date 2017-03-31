@@ -132,6 +132,10 @@ class CustomTools(object):
         deref_data = deref["Information"]
         deref_data["id"] = str(deref["_id"])
         deref_data["username"] = deref["username"]
+        # 将不解引用的ObjectID全部删除, 防止陷入解引用死循环以及返回报错
+        key_list = ["following", "followed", "blacklist", "treehole", "message"]
+        for key in key_list:
+            del deref_data[key]
         return deref_data
 
     # 批量解引用userdata并且把里面的敏感内容删除后返回(GetOtherUser API格式)
@@ -140,6 +144,29 @@ class CustomTools(object):
         deref_list = []
         for i in ref_list:
             CustomTools.get_deref_userdata(i)
+        return deref_list
+
+    # 将announcement内不解引用的ObjectID全部转成str, 防止陷入解引用死循环以及返回报错
+    @staticmethod
+    def obid_to_str(deref):
+        deref["ancestor"] = deref["ancestor"]
+        deref["parent"] = deref["parent"]
+        del deref["children"]  # 目前删除
+
+    # 将文章解引用后把里面的ObjectID全都转成str
+    @staticmethod
+    def deref_article(ref_arti):
+        deref = CustomTools.get_deref_with_strid(ref_arti)
+        CustomTools.obid_to_str(deref)
+        return deref
+
+
+    # 子评论批量解引用
+    @staticmethod
+    def batch_deref_children(ref_children):
+        deref_list = []
+        for i in ref_children:
+            deref_list.append(CustomTools.deref_article(i))
         return deref_list
 
     # 用户信息批量解引用
@@ -151,14 +178,8 @@ class CustomTools(object):
         ref_info["blacklist"] = CustomTools.batch_get_deref_userdata(ref_info["blacklist"])
         ref_info["treehole"] = ref_info[0:10]  # 只保留前10条数据
         ref_info["treehole"] = CustomTools.batch_get_deref_userdata(ref_info["treehole"])
+        ref_info["message"] = CustomTools.batch_deref_children(ref_info["message"])
 
-    # 子评论批量解引用
-    @staticmethod
-    def batch_deref_children(ref_children):
-        deref_list = []
-        for i in ref_children:
-            deref_list.append(CustomTools.get_deref_with_strid(i))
-        return deref_list
 
 
 # 认证,别改了
@@ -383,7 +404,8 @@ class GetOtherUser(Resource):
         information = userdata["Information"]
         CustomTools.batch_deref_info(information)
         information["id"] = str(userdata["_id"])
-
+        del information["message"]  # 阻止获取其他人的信息
+        del information["blacklist"]  # 阻止获取其他人的黑名单
         success = {"success": True, "user": information}
         return success
 
@@ -529,12 +551,14 @@ class GetArticle(Resource):
             for item in announcement.find({'type': type_}).sort('_id', -1).limit(count):
                 item['_id'] = str(item['_id'])
                 item['user'] = CustomTools.get_deref_userdata(item['user'])
+                del item["children"]
                 article.append(item)
         else:
             for item in announcement.find({'_id': {'$lt': ObjectId(article_id)}, 'type': type_}).\
                     limit(count).sort('_id', -1):
                 item['_id'] = str(item['_id'])
                 item['user'] = CustomTools.get_deref_userdata(item['user'])
+                del item["children"]
                 article.append(item)
 
         article.reverse()  # list倒序，不知道为什么前端那边会把数据倒置。
@@ -559,6 +583,8 @@ class GetOneArticle(Resource):
 
         # 获取
         article = DbTools.arti_se_objectid(ObjectId(article_ID))
+        article['user'] = CustomTools.get_deref_userdata(article['user'])
+        del article["children"]  # 删除children防止报错
         success = {'success': True, 'article': article}
         return success
 
@@ -584,11 +610,13 @@ class GetLast(Resource):
             for item in announcement.find({'type': type_}).sort('_id', -1).limit(count):
                 item['_id'] = str(item['_id'])
                 item['user'] = CustomTools.get_deref_userdata(item['user'])
+                del item["children"]  # 删除children防止报错
                 article.append(item)
         else:
             for item in announcement.find({'_id': {'$gt': ObjectId(article_id)}, 'type': type_}).sort('_id', -1):
                 item['_id'] = str(item['_id'])
                 item['user'] = CustomTools.get_deref_userdata(item['user'])
+                del item["children"]
                 article.append(item)
 
         if len(article) == 0:
@@ -844,6 +872,9 @@ class GetComment(Resource):
         else:
             for item in announcement.find({'type': type_, 'ancestor': article_id}).sort('_id', -1).limit(count):
                 item['_id'] = str(item['_id'])
+                item['ancestor'] = str(item['ancestor'])
+                item['user'] = CustomTools.get_deref_userdata(item['user'])
+                item['parent'] = CustomTools.deref_article(item['parent'])
                 item["children"] = CustomTools.batch_deref_children(item["children"])
                 article.append(item)
 
