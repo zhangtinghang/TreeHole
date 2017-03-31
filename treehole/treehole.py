@@ -228,7 +228,7 @@ class Message(object):
     @staticmethod
     def message_add(ref_id, userid):
         userData.update({'_id': userid},
-                        {'$push': {'Information.message': {'$each': ref_id, '$position': 0}}})
+                        {'$push': {'Information.message': {'$each': [ref_id], '$position': 0}}})
 
     @staticmethod
     def message_del(ref_id, userid):
@@ -836,7 +836,7 @@ class PostComment(Resource):
             # 写入成功后将此评论的引用提交给父评论
             if args["parent_ID"] is not None:
                 announcement.update({"_id": args["parent_ID"]},
-                                    {"$push": {"children": {"$each": ref_id, "$position": 0}}})
+                                    {"$push": {"children": {"$each": [ref_id], "$position": 0}}})
                 # 发送至消息提示至父评论
                 par_author = db.dereference(ref_parent)
                 Message.message_add(ref_id, par_author['_id'])
