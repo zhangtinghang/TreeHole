@@ -181,7 +181,6 @@ class CustomTools(object):
         ref_info["message"] = CustomTools.batch_deref_children(ref_info["message"])
 
 
-
 # 认证,别改了
 class Token(object):
     def get_token(self, username):
@@ -835,8 +834,9 @@ class PostComment(Resource):
             id_ = announcement.insert(comment_data)
             ref_id = DBRef(collection="announcement", id=id_)
             # 写入成功后将此评论的引用提交给父评论
-            announcement.update({"_id": args["parent_ID"]},
-                                {"$push": {"children": {"$each": ref_id, "$position": 0}}})
+            if args["parent_ID"] is not None:
+                announcement.update({"_id": args["parent_ID"]},
+                                    {"$push": {"children": {"$each": ref_id, "$position": 0}}})
             # 发送至消息提示至父评论作者以及文章作者
             if args['article_ID'] != args['parent_ID']:  # 防止给作者发两次消息
                 ref_author = announcement.find_one({"_id": ObjectId(args['article_ID'])})
