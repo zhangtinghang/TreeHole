@@ -837,14 +837,13 @@ class PostComment(Resource):
             if args["parent_ID"] is not None:
                 announcement.update({"_id": args["parent_ID"]},
                                     {"$push": {"children": {"$each": ref_id, "$position": 0}}})
-            # 发送至消息提示至父评论作者以及文章作者
-            if args['article_ID'] != args['parent_ID']:  # 防止给作者发两次消息
-                ref_author = announcement.find_one({"_id": ObjectId(args['article_ID'])})
-                author = db.dereference(ref_author)
-                Message.message_add(ref_id, author['_id'])
-
-            par_author = db.dereference(ref_parent)
-            Message.message_add(ref_id, par_author['_id'])
+                # 发送至消息提示至父评论
+                par_author = db.dereference(ref_parent)
+                Message.message_add(ref_id, par_author['_id'])
+            # 发送至消息提示至作者
+            ref_author = announcement.find_one({"_id": ObjectId(args['article_ID'])})
+            author = db.dereference(ref_author)
+            Message.message_add(ref_id, author['_id'])
         except:
             failure = {'success': False, 'error': '内部数据库错误'}
             return failure
