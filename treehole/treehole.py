@@ -808,7 +808,7 @@ class PostComment(Resource):
         args["article_ID"] = ObjectId(args["article_ID"])
         args["parent_ID"] = ObjectId(args["parent_ID"])
         # 验证参数完整性
-        ver_list = ['article_ID', 'parent_ID', 'username', 'content']
+        ver_list = ['parent_ID', 'username', 'content']
         if CustomTools.ver_par_integrity(ver_list, args) is False:
             return CustomTools.failure(1)
 
@@ -820,7 +820,10 @@ class PostComment(Resource):
             return failure
 
         # 生成引用
-        ref_parent = DBRef(collection="announcement", id=args["parent_ID"])
+        if args["parent_ID"] is not None:
+            ref_parent = DBRef(collection="announcement", id=args["parent_ID"])
+        else:
+            ref_parent = None
         ref_ancestor = DBRef(collection="announcement", id=args["article_ID"])
         upTime = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
 
