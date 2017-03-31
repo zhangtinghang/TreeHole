@@ -873,4 +873,6 @@ api.add_resource(PostComment, '/api/postComment')
 api.add_resource(GetComment, '/api/getComment')
 
 if __name__ == '__main__':
-    app.run(host='10.0.0.4', debug=True)
+    with open('host.txt', 'r') as f:
+        ip = f.read()
+    app.run(host=ip, debug=True)
