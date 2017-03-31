@@ -842,7 +842,7 @@ class PostComment(Resource):
                 Message.message_add(ref_id, par_author['_id'])
             # 发送至消息提示至作者
             ref_author = announcement.find_one({"_id": ObjectId(args['article_ID'])})
-            author = db.dereference(ref_author)
+            author = db.dereference(ref_author["user"])
             Message.message_add(ref_id, author['_id'])
         except:
             failure = {'success': False, 'error': '内部数据库错误'}
