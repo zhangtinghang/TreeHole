@@ -52,7 +52,7 @@ def output_json(data, code, headers=None):
     return resp
 
 
-# 数据库常用方法， 返回类型均为SON类
+# 数据库常用方法
 class DbTools(object):
     """查询方法
     """
@@ -293,7 +293,7 @@ class Register(Resource):
                        'error': '答案不得为空'}
             return failure
 
-        if DbTools().user_se_username(username) is None:  # 判断是否重名
+        if DbTools.user_se_username(username) is None:  # 判断是否重名
             new_user = {'username': username,
                         'password': password,
                         'problem_id': problem_id,
@@ -326,8 +326,13 @@ class RegisterUsername(Resource):
         parser.add_argument('username')
 
         args = parser.parse_args()
+        # 验证必要参数完整性
+        ver_list = ["username"]
+        if CustomTools.ver_par_integrity(ver_list, args) is False:
+            return CustomTools.failure(1)
+
         username = args['username']
-        if DbTools().user_se_username(username) is None:
+        if DbTools.user_se_username(username) is None:
             success = {'success': True}
             return success
         else:
