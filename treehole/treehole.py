@@ -111,6 +111,7 @@ class CustomTools(object):
     def ver_par_integrity(ver_list, args):
         for i in ver_list:
             if args[i] is not True:
+                print(args[i])
                 return False
         return True
 
