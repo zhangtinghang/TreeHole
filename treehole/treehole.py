@@ -660,7 +660,7 @@ class GetLast(Resource):
                 article.append(item)
 
         if len(article) == 0:
-            return {'success': True, 'article': None}, 150
+            return {'success': True, 'article': None}
         # article.reverse()  # list倒序，不知道为什么前端那边会把数据倒置。
         success = {'success': True, 'article': article}
         return success
@@ -955,7 +955,7 @@ class GetComment(Resource):
 
         print(article)
         if len(article) == 0:
-            return {'success': True, 'article': None}, 150
+            return {'success': True, 'article': None}
         # article.reverse()  # list倒序，不知道为什么前端那边会把数据倒置。
         success = {'success': True, 'article': article}
         return success
