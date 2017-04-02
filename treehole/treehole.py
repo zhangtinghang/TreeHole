@@ -110,7 +110,7 @@ class CustomTools(object):
     @staticmethod
     def ver_par_integrity(ver_list, args):
         for i in ver_list:
-            if i is not True:
+            if args[i] is not True:
                 return False
         return True
 
