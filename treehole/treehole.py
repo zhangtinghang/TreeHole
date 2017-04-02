@@ -134,8 +134,11 @@ class CustomTools(object):
         deref_data = deref["Information"]
         deref_data["id"] = str(deref["_id"])
         deref_data["username"] = deref["username"]
+        treehole = deref_data["treehole"]
+        treehole = treehole[0:1]  # 只保留1条数据
+        deref_data["treehole"] = CustomTools.batch_deref_children(treehole)
         # 将不解引用的ObjectID全部删除, 防止陷入解引用死循环以及返回报错
-        key_list = ["following", "followed", "blacklist", "treehole", "message"]
+        key_list = ["following", "followed", "blacklist", "message"]
         for key in key_list:
             del deref_data[key]
         return deref_data
@@ -180,8 +183,9 @@ class CustomTools(object):
         ref_info["following"] = CustomTools.batch_get_deref_userdata(ref_info["following"])
         ref_info["followed"] = CustomTools.batch_get_deref_userdata(ref_info["followed"])
         ref_info["blacklist"] = CustomTools.batch_get_deref_userdata(ref_info["blacklist"])
-        ref_info["treehole"] = ref_info[0:10]  # 只保留前10条数据
-        ref_info["treehole"] = CustomTools.batch_get_deref_userdata(ref_info["treehole"])
+        treehole = ref_info["treehole"]
+        treehole = treehole[0:10]  # 只保留前10条数据
+        ref_info["treehole"] = CustomTools.batch_deref_children(treehole)
         ref_info["message"] = CustomTools.batch_deref_children(ref_info["message"])
 
 
