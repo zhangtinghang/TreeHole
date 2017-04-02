@@ -161,7 +161,7 @@ class CustomTools(object):
     def deref_article(ref_arti):
         deref = CustomTools.get_deref_with_strid(ref_arti)
         CustomTools.obid_to_str(deref)
-        CustomTools.get_deref_userdata(deref["user"])
+        deref["user"] = CustomTools.get_deref_userdata(deref["user"])
         return deref
 
 
