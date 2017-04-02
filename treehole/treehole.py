@@ -639,6 +639,7 @@ class GetLast(Resource):
         if len(article) == 0:
             return {'success': True, 'article': None}, 150
         # article.reverse()  # list倒序，不知道为什么前端那边会把数据倒置。
+        print(article)
         success = {'success': True, 'article': article}
         return success
 
