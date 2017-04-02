@@ -173,16 +173,47 @@ class CustomTools(object):
             deref_list.append(CustomTools.deref_article(i))
         return deref_list
 
+    # 为获取关注人最新树洞而写的解引用
+    @staticmethod
+    def batch_dref_for_fo(ref_tr):
+        deref_list = []
+        for i in ref_tr:
+            deref = db.dereference(i)
+            del deref["user"]
+            del deref["parent"]
+            del deref["children"]
+            del deref["ancestor"]
+            deref_list.append(deref)
+        return deref_list
+
+    # 获取关注人的树洞的解引用
+    @staticmethod
+    def bat_deref_fo(ref_fo):
+        deref_list = []
+        for i in ref_fo:
+            deref_fo = db.dereference(ref_fo)
+            deref_info = deref_fo["Information"]
+            deref_info["id"] = str(deref_fo["_id"])
+            deref_info["username"] = deref_fo["username"]
+            deref_info["treehole"] = CustomTools.batch_dref_for_fo(deref_info["treehole"])  # 树洞解引用
+            key_list = ["following", "followed", "blacklist", "message", "treehole"]
+            del deref_info["following"]
+            del deref_info["followed"]
+            del deref_info["blacklist"]
+            del deref_info["message"]
+            deref_list.append(deref_info)
+        return deref_list
+
     # 用户信息批量解引用
     @staticmethod
     def batch_deref_info(ref_info):
         # 解引用following
-        ref_info["following"] = CustomTools.batch_get_deref_userdata(ref_info["following"])
-        ref_info["followed"] = CustomTools.batch_get_deref_userdata(ref_info["followed"])
-        ref_info["blacklist"] = CustomTools.batch_get_deref_userdata(ref_info["blacklist"])
+        ref_info["following"] = CustomTools.bat_deref_fo(ref_info["following"])
+        ref_info["followed"] = CustomTools.bat_deref_fo(ref_info["followed"])
+        ref_info["blacklist"] = CustomTools.bat_deref_fo(ref_info["blacklist"])
         treehole = ref_info["treehole"]
         treehole = treehole[0:10]  # 只保留前10条数据
-        ref_info["treehole"] = CustomTools.batch_deref_children(treehole)
+        ref_info["treehole"] = CustomTools.batch_dref_for_fo(treehole)
         ref_info["message"] = CustomTools.batch_deref_children(ref_info["message"])
 
 
@@ -631,7 +662,6 @@ class GetLast(Resource):
         if len(article) == 0:
             return {'success': True, 'article': None}, 150
         # article.reverse()  # list倒序，不知道为什么前端那边会把数据倒置。
-        print(article)
         success = {'success': True, 'article': article}
         return success
 
@@ -833,6 +863,7 @@ class UnBlackList(Resource):
             return failure
         success = {'success': True}
         return success
+
 
 # 评论
 class PostComment(Resource):
