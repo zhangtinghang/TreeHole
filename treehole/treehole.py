@@ -806,6 +806,36 @@ class BlackList(Resource):
         return success
 
 
+class UnBlackList(Resource):
+    def post(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument("token")
+        parser.add_argument("userid")
+
+        args = parser.parse_args()
+        args["userid"] = ObjectId(args["userid"])  # 将str的userid装换成objectid
+        # 验证参数完整性
+        ver_list = ["token", "userid"]
+        if CustomTools.ver_par_integrity(ver_list, args) is False:
+            return CustomTools.failure(1)
+
+        # 验证
+        token = args['token']
+        verify = Verify()
+        if verify.verify_token(token) is False:
+            failure = {'success': False, 'error': verify.error}
+            return failure
+        try:
+            # 将该用户从拉黑方删除
+            ref_user = DBRef(collection="userData", id=args["userid"])
+            userData.update({"_id": verify.userdata["_id"]},
+                            {"$pull": {"Information.blacklist": ref_user}})
+        except:
+            failure = {'success': False, 'error': '内部数据库错误'}
+            return failure
+        success = {'success': True}
+        return success
+
 # 评论
 class PostComment(Resource):
     def post(self):
@@ -919,6 +949,7 @@ api.add_resource(UnFollow, '/api/unFollow')
 api.add_resource(BlackList, '/api/blackList')
 api.add_resource(PostComment, '/api/postComment')
 api.add_resource(GetComment, '/api/getComment')
+api.add_resource(UnBlackList, '/api/unBlackList')
 
 if __name__ == '__main__':
     with open('host.txt', 'r') as f:
