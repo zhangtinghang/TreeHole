@@ -136,7 +136,7 @@ class CustomTools(object):
         deref_data["username"] = deref["username"]
         treehole = deref_data["treehole"]
         treehole = treehole[0]  # 只保留1条数据
-        treehole = db.dereference(ref)
+        treehole = db.dereference(treehole)
         del treehole["user"]
         del treehole["parent"]
         del treehole["ancestor"]
