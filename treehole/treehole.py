@@ -110,8 +110,7 @@ class CustomTools(object):
     @staticmethod
     def ver_par_integrity(ver_list, args):
         for i in ver_list:
-            if args[i] is not True:
-                print(args[i])
+            if not args[i]:
                 return False
         return True
 
@@ -431,7 +430,7 @@ class Announce(Resource):
         ver_list = ["token", "title", "text", "tag", "type"]
         if CustomTools.ver_par_integrity(ver_list, args) is False:
             return CustomTools.failure(1)
-        if args["extra"] is not True:
+        if not args["extra"]:
             args["extra"] = []
         # 验证
         token = args["token"]
@@ -509,7 +508,7 @@ class AlterArticle(Resource):
 
         # 验证必要参数完整性
         ver_list = ["token", "article_ID", "title", "text", "type", "tag", "extra"]
-        if CustomTools.ver_par_integrity(ver_list, args) is not True:
+        if CustomTools.ver_par_integrity(ver_list, args) is False:
             return CustomTools.failure(1)
 
         # 验证
@@ -577,7 +576,7 @@ class GetOneArticle(Resource):
         article_ID = request.args.get('article_ID')
 
         # 验证参数完整性
-        if article_ID is not True:
+        if article_ID:
             return CustomTools.failure(1)
 
         # # 验证
