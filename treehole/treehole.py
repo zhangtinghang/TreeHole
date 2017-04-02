@@ -884,6 +884,7 @@ class GetComment(Resource):
                 item['ancestor'] = str(item['ancestor'])
                 item['user'] = CustomTools.get_deref_userdata(item['user'])
                 if item['parent'] is not None:
+                    print(item["parent"])
                     item['parent'] = CustomTools.deref_article(item['parent'])
                 item["children"] = CustomTools.batch_deref_children(item["children"])
                 article.append(item)
