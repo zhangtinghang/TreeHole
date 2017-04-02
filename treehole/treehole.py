@@ -151,8 +151,8 @@ class CustomTools(object):
     # 将announcement内不解引用的ObjectID全部转成str, 防止陷入解引用死循环以及返回报错
     @staticmethod
     def obid_to_str(deref):
-        deref["ancestor"] = deref["ancestor"]
-        deref["parent"] = deref["parent"]
+        deref["ancestor"] = str(deref["ancestor"])
+        del deref["parent"]  # 目前删除
         del deref["children"]  # 目前删除
 
     # 将文章解引用后把里面的ObjectID全都转成str
