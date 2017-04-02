@@ -151,6 +151,7 @@ class CustomTools(object):
     # 将announcement内不解引用的ObjectID全部转成str, 防止陷入解引用死循环以及返回报错
     @staticmethod
     def obid_to_str(deref):
+        deref["id"] = str(deref["id"])
         deref["ancestor"] = str(deref["ancestor"])
         del deref["parent"]  # 目前删除
         del deref["children"]  # 目前删除
@@ -160,6 +161,7 @@ class CustomTools(object):
     def deref_article(ref_arti):
         deref = CustomTools.get_deref_with_strid(ref_arti)
         CustomTools.obid_to_str(deref)
+        CustomTools.get_deref_userdata(deref["user"])
         return deref
 
 
