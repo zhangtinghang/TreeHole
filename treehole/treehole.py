@@ -400,6 +400,7 @@ class GetUser(Resource):
         CustomTools.batch_deref_info(information)
         information["id"] = str(verify.userdata["_id"])
         information["username"] = str(verify.userdata["username"])
+        print(information)
         success = {"success": True, "user": information}
         return success
 
