@@ -195,7 +195,7 @@ class CustomTools(object):
     def bat_deref_fo(ref_fo):
         deref_list = []
         for i in ref_fo:
-            deref_fo = db.dereference(ref_fo)
+            deref_fo = db.dereference(i)
             deref_info = deref_fo["Information"]
             deref_info["id"] = str(deref_fo["_id"])
             deref_info["username"] = deref_fo["username"]
