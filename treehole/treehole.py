@@ -164,13 +164,16 @@ class CustomTools(object):
         deref["user"] = CustomTools.get_deref_userdata(deref["user"])
         return deref
 
-
     # 子评论批量解引用
     @staticmethod
     def batch_deref_children(ref_children):
         deref_list = []
         for i in ref_children:
-            deref_list.append(CustomTools.deref_article(i))
+            try:
+                deref_list.append(CustomTools.deref_article(i))
+            except Exception as e:
+                print("该数据有错误:" + str(e))
+                continue
         return deref_list
 
     # 为获取关注人最新树洞而写的解引用
