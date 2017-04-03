@@ -877,9 +877,10 @@ class PostComment(Resource):
         args = parser.parse_args()
 
         args["article_ID"] = ObjectId(args["article_ID"])
-        args["parent_ID"] = ObjectId(args["parent_ID"])
+        if args["parent_ID"]:
+            args["parent_ID"] = ObjectId(args["parent_ID"])
         # 验证参数完整性
-        ver_list = ['parent_ID', 'username', 'content']
+        ver_list = ["article_ID", "token", "content"]
         if CustomTools.ver_par_integrity(ver_list, args) is False:
             return CustomTools.failure(1)
 
