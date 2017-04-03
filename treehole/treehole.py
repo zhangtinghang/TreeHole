@@ -208,13 +208,18 @@ class CustomTools(object):
     @staticmethod
     def batch_deref_info(ref_info):
         # 解引用following
-        ref_info["following"] = CustomTools.bat_deref_fo(ref_info["following"])
-        ref_info["followed"] = CustomTools.bat_deref_fo(ref_info["followed"])
-        ref_info["blacklist"] = CustomTools.bat_deref_fo(ref_info["blacklist"])
-        treehole = ref_info["treehole"]
-        treehole = treehole[0:10]  # 只保留前10条数据
-        ref_info["treehole"] = CustomTools.batch_dref_for_fo(treehole)
-        ref_info["message"] = CustomTools.batch_deref_children(ref_info["message"])
+        if ref_info["following"]:
+            ref_info["following"] = CustomTools.bat_deref_fo(ref_info["following"])
+        if ref_info["followed"]:
+            ref_info["followed"] = CustomTools.bat_deref_fo(ref_info["followed"])
+        if ref_info["blacklist"]:
+            ref_info["blacklist"] = CustomTools.bat_deref_fo(ref_info["blacklist"])
+        if ref_info["treehole"]:
+            treehole = ref_info["treehole"]
+            treehole = treehole[0:10]  # 只保留前10条数据
+            ref_info["treehole"] = CustomTools.batch_dref_for_fo(treehole)
+        if ref_info["message"]:
+            ref_info["message"] = CustomTools.batch_deref_children(ref_info["message"])
 
 
 # 认证,别改了
