@@ -892,7 +892,7 @@ class PostComment(Resource):
             return failure
 
         # 生成引用
-        if args["parent_ID"] is not None:
+        if args["parent_ID"]:
             ref_parent = DBRef(collection="announcement", id=args["parent_ID"])
         else:
             ref_parent = None
