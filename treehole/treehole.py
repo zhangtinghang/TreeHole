@@ -182,6 +182,7 @@ class CustomTools(object):
         deref_list = []
         for i in ref_tr:
             deref = db.dereference(i)
+            deref["_id"] = str(deref["_id"])
             del deref["user"]
             del deref["parent"]
             del deref["children"]
