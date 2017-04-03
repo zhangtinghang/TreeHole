@@ -907,7 +907,7 @@ class PostComment(Resource):
             id_ = announcement.insert(comment_data)
             ref_id = DBRef(collection="announcement", id=id_)
             # 写入成功后将此评论的引用提交给父评论
-            if args["parent_ID"] is not None:
+            if args["parent_ID"]:
                 announcement.update({"_id": args["parent_ID"]},
                                     {"$push": {"children": {"$each": [ref_id], "$position": 0}}})
                 # 发送至消息提示至父评论
