@@ -900,7 +900,8 @@ class PostComment(Resource):
         upTime = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
 
         # 将评论写入db.announcement
-        comment_data = {'text': args['content'], 'user': verify.userdata['_id'],
+        user_ref = DBRef(collection="userData", id=verify.userdata["_id"])
+        comment_data = {'text': args['content'], 'user': user_ref,
                         'type': None, 'date': upTime,
                         'ancestor': args["article_ID"], 'parent': ref_parent, 'children': []}
         try:
