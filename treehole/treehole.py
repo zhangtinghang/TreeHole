@@ -963,7 +963,6 @@ class GetComment(Resource):
                 item["children"] = CustomTools.batch_deref_children(item["children"])
                 article.append(item)
 
-        print(article)
         if len(article) == 0:
             return {'success': True, 'article': None}
         # article.reverse()  # list倒序，不知道为什么前端那边会把数据倒置。
