@@ -153,7 +153,8 @@ class CustomTools(object):
     def obid_to_str(deref):
         deref["_id"] = str(deref["_id"])
         deref["ancestor"] = str(deref["ancestor"])
-        del deref["parent"]  # 目前删除
+        if deref["parent"]:
+            deref["parent"] = str(db.dereference(deref["parent"])["_id"])
         del deref["children"]  # 目前删除
 
     # 将文章解引用后把里面的ObjectID全都转成str
@@ -924,7 +925,7 @@ class PostComment(Resource):
                 # 发送至消息提示至父评论
                 par_author = db.dereference(ref_parent)
                 Message.message_add(ref_id, par_author['_id'])
-            # 发送至消息提示至作者
+            # 发送至消息提示至作者，
             ref_author = announcement.find_one({"_id": ObjectId(args['article_ID'])})
             author = db.dereference(ref_author["user"])
             Message.message_add(ref_id, author['_id'])
