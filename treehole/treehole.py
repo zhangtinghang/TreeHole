@@ -132,7 +132,7 @@ class CustomTools(object):
     def get_deref_userdata(ref):
         deref = db.dereference(ref)
         deref_data = deref["Information"]
-        deref_data["id"] = str(deref["_id"])
+        deref_data["_id"] = str(deref["_id"])
         deref_data["username"] = deref["username"]
         # 将不解引用的ObjectID全部删除, 防止陷入解引用死循环以及返回报错
         key_list = ["following", "followed", "blacklist", "message", "treehole"]
