@@ -741,7 +741,7 @@ class Follow(Resource):
             return failure
 
         # 检测关注方是否被被关注方拉黑
-        temp = DbTools.user_se_username(args["userid"])
+        temp = DbTools.user_se_objectid(args["userid"])
         blacklist = CustomTools.batch_get_deref_userdata(temp['Information']['blacklist'])
         for user in CustomTools.bat_deref_fo(blacklist):
             if args["userid"] == user["_id"]:
