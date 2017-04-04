@@ -198,7 +198,7 @@ class CustomTools(object):
         for i in ref_fo:
             deref_fo = db.dereference(i)
             deref_info = deref_fo["Information"]
-            deref_info["id"] = str(deref_fo["_id"])
+            deref_info["_id"] = str(deref_fo["_id"])
             deref_info["username"] = deref_fo["username"]
             deref_info["treehole"] = CustomTools.batch_dref_for_fo(deref_info["treehole"])  # 树洞解引用
             key_list = ["following", "followed", "blacklist", "message", "treehole"]
