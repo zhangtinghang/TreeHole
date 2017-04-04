@@ -400,7 +400,7 @@ class GetUser(Resource):
         # 返回信息
         information = verify.userdata["Information"]
         CustomTools.batch_deref_info(information)
-        information["id"] = str(verify.userdata["_id"])
+        information["_id"] = str(verify.userdata["_id"])
         information["username"] = str(verify.userdata["username"])
         success = {"success": True, "user": information}
         return success
@@ -453,7 +453,7 @@ class GetOtherUser(Resource):
             return CustomTools.failure(6)
         information = userdata["Information"]
         CustomTools.batch_deref_info(information)
-        information["id"] = str(userdata["_id"])
+        information["_id"] = str(userdata["_id"])
         del information["message"]  # 阻止获取其他人的信息
         del information["blacklist"]  # 阻止获取其他人的黑名单
         success = {"success": True, "user": information}
