@@ -744,9 +744,16 @@ class Follow(Resource):
             # 检测关注方是否被被关注方拉黑
             temp = DbTools.user_se_username(args["userid"])
             blacklist = CustomTools.batch_get_deref_userdata(temp['Information']['blacklist'])
-            if args["userid"] in blacklist:
-                failure = {'success': False, 'error': '你已被屏蔽'}
-                return failure
+            for user in blacklist:
+                if args["userid"] == user["_id"]:
+                    failure = {'success': False, 'error': '你已被屏蔽'}
+                    return failure
+            # 检测是否已关注过该用户
+            following = verify.userdata["following"]
+            for user in following:
+                if args["userid"] == user["_id"]:
+                    failure = {'success': False, 'error': '你已关注该用户'}
+                    return failure
             # 给关注方添加following
             ref_user = DBRef(collection="userData", id=args["userid"])
             userData.update({'_id': verify.userdata["_id"]},
