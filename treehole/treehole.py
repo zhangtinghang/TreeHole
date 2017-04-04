@@ -402,7 +402,6 @@ class GetUser(Resource):
         CustomTools.batch_deref_info(information)
         information["id"] = str(verify.userdata["_id"])
         information["username"] = str(verify.userdata["username"])
-        print(information)
         success = {"success": True, "user": information}
         return success
 
@@ -740,33 +739,29 @@ class Follow(Resource):
         if verify.verify_token(token) is False:
             failure = {'success': False, 'error': verify.error}
             return failure
-        try:
-            # 检测关注方是否被被关注方拉黑
-            temp = DbTools.user_se_username(args["userid"])
-            blacklist = CustomTools.batch_get_deref_userdata(temp['Information']['blacklist'])
-            for user in blacklist:
-                if args["userid"] == user["_id"]:
-                    failure = {'success': False, 'error': '你已被屏蔽'}
-                    return failure
-            # 检测是否已关注过该用户
-            following = verify.userdata["following"]
-            for user in following:
-                if args["userid"] == user["_id"]:
-                    failure = {'success': False, 'error': '你已关注该用户'}
-                    return failure
-            # 给关注方添加following
-            ref_user = DBRef(collection="userData", id=args["userid"])
-            userData.update({'_id': verify.userdata["_id"]},
-                            {'$push': {'Information.following': {'$each': [ref_user], '$position': 0}}})
 
-            # 给被关注方添加followed
-            ref_user = DBRef(collection="userData", id=verify.userdata["_id"])
-            userData.update({'_id': args['userid']},
-                            {'$push': {'Information.followed': {'$each': [ref_user], '$position': 0}}})
-        except Exception as e:
-            print(e)
-            failure = {'success': False, 'error': '内部数据库错误'}
-            return failure
+        # 检测关注方是否被被关注方拉黑
+        temp = DbTools.user_se_username(args["userid"])
+        blacklist = CustomTools.batch_get_deref_userdata(temp['Information']['blacklist'])
+        for user in blacklist:
+            if args["userid"] == user["_id"]:
+                failure = {'success': False, 'error': '你已被屏蔽'}
+                return failure
+        # 检测是否已关注过该用户
+        following = verify.userdata["following"]
+        for user in following:
+            if args["userid"] == user["_id"]:
+                failure = {'success': False, 'error': '你已关注该用户'}
+                return failure
+        # 给关注方添加following
+        ref_user = DBRef(collection="userData", id=args["userid"])
+        userData.update({'_id': verify.userdata["_id"]},
+                        {'$push': {'Information.following': {'$each': [ref_user], '$position': 0}}})
+
+        # 给被关注方添加followed
+        ref_user = DBRef(collection="userData", id=verify.userdata["_id"])
+        userData.update({'_id': args['userid']},
+                        {'$push': {'Information.followed': {'$each': [ref_user], '$position': 0}}})
 
         success = {'success': True}
         return success
