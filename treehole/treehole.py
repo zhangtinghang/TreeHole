@@ -440,7 +440,7 @@ class Alter(Resource):
 class GetOtherUser(Resource):
     def get(self):
         token = request.args.get("token")
-        user_id = request.args.get("id")
+        user_id = ObjectId(request.args.get("id"))
 
         # 验证
         verify = Verify()
