@@ -744,13 +744,13 @@ class Follow(Resource):
         temp = DbTools.user_se_objectid(args["userid"])
         blacklist = CustomTools.batch_get_deref_userdata(temp['Information']['blacklist'])
         for user in CustomTools.bat_deref_fo(blacklist):
-            if str(args["userid"]) == user["_id"]:
+            if args["userid"] == user["_id"]:
                 failure = {'success': False, 'error': '你已被屏蔽'}
                 return failure
         # 检测是否已关注过该用户
         following = verify.userdata["Information"]["following"]
         for user in CustomTools.bat_deref_fo(following):
-            if args["userid"] == user["_id"]:
+            if str(args["userid"]) == user["_id"]:
                 failure = {'success': False, 'error': '你已关注该用户'}
                 return failure
         # 给关注方添加following
