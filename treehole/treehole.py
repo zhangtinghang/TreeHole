@@ -318,7 +318,6 @@ class Register(Resource):
         parser.add_argument('answer')
 
         args = parser.parse_args()
-        print(args)
         username = args['username']
         if username is None:
             failure = {'success': False,
