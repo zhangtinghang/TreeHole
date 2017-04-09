@@ -318,6 +318,7 @@ class Register(Resource):
         parser.add_argument('answer')
 
         args = parser.parse_args()
+        print(args)
         username = args['username']
         if username is None:
             failure = {'success': False,
@@ -430,7 +431,7 @@ class Alter(Resource):
         del args["token"]  # 删除token以防止token被update
         info_list = ["avatar", "nickname"]
         for x in info_list:  # 更新数据
-            if args[x] is not None:
+            if args[x] != "":
                 docu = "Information." + x
                 userData.update({"_id": verify.userdata["_id"]}, {"$set": {docu: args[x]}})
         success = {"success": True}
