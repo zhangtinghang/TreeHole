@@ -460,6 +460,29 @@ class GetOtherUser(Resource):
         return success
 
 
+class GetOtherUserByName(Resource):
+    def get(self):
+        token = request.args.get("token")
+        username = request.args.get("username")
+
+        # 验证
+        verify = Verify()
+        if verify.verify_token(token) is False or verify.verify_perm(0) is False:
+            failure = {"success": False, "error": verify.error}
+            return failure
+
+        userdata = DbTools.user_se_username(username)
+        if userdata is None:
+            return CustomTools.failure(6)
+        information = userdata["Information"]
+        CustomTools.batch_deref_info(information)
+        information["_id"] = str(userdata["_id"])
+        del information["message"]  # 阻止获取其他人的信息
+        del information["blacklist"]  # 阻止获取其他人的黑名单
+        success = {"success": True, "user": information}
+        return success
+
+
 # 发布树洞
 class Announce(Resource):
     def post(self):
@@ -980,6 +1003,7 @@ api.add_resource(RegisterUsername, '/api/registerUsername')
 api.add_resource(GetUser, '/api/getUser')
 api.add_resource(Alter, '/api/alter')
 api.add_resource(GetOtherUser, '/api/getOtherUser')
+api.add_resource(GetOtherUserByName, '/api/getOtherUserByName')
 api.add_resource(Announce, '/api/announce')
 api.add_resource(DeleteArticle, '/api/deleteArticle')
 api.add_resource(AlterArticle, '/api/alterArticle')
