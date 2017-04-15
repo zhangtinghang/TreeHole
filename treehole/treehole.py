@@ -454,6 +454,7 @@ class GetOtherUser(Resource):
         information = userdata["Information"]
         CustomTools.batch_deref_info(information)
         information["_id"] = str(userdata["_id"])
+        information["username"] = userdata["username"]
         del information["message"]  # 阻止获取其他人的信息
         del information["blacklist"]  # 阻止获取其他人的黑名单
         success = {"success": True, "user": information}
@@ -477,6 +478,7 @@ class GetOtherUserByName(Resource):
         information = userdata["Information"]
         CustomTools.batch_deref_info(information)
         information["_id"] = str(userdata["_id"])
+        information["username"] = userdata["username"]
         del information["message"]  # 阻止获取其他人的信息
         del information["blacklist"]  # 阻止获取其他人的黑名单
         success = {"success": True, "user": information}
