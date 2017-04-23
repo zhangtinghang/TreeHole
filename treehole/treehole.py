@@ -493,7 +493,7 @@ class Announce(Resource):
         parser.add_argument("title")
         parser.add_argument("text")
         parser.add_argument("tag")
-        parser.add_argument("extra", type=list)
+        parser.add_argument("extra", action="append")
         parser.add_argument("type", type=int)
 
         args = parser.parse_args()
@@ -573,7 +573,7 @@ class AlterArticle(Resource):
         parser.add_argument("text")
         parser.add_argument("tag")
         parser.add_argument("type", type=int)
-        parser.add_argument("extra", type=list)
+        parser.add_argument("extra", action="append")
 
         args = parser.parse_args()
 
