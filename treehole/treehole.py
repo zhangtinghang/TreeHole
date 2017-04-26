@@ -3,6 +3,7 @@ import json
 import os
 import base64
 import re
+import socket
 
 import pymongo
 import shortuuid
@@ -14,6 +15,9 @@ from flask_restful import Resource, Api, reqparse
 from flask_tokenauth import TokenAuth, TokenManager
 from pymongo.son_manipulator import AutoReference, NamespaceInjector
 from pymongo.database import DBRef
+
+# 防止假死
+socket.setdefaulttimeout(10)
 
 # 数据库初始化
 with open('ssl.txt', 'r') as f:
