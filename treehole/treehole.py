@@ -647,7 +647,7 @@ class GetOneArticle(Resource):
         article_ID = request.args.get('article_ID')
 
         # 验证参数完整性
-        if article_ID:
+        if article_ID is None or article_ID == "":
             return CustomTools.failure(1)
 
         # # 验证
