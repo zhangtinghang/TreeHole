@@ -660,6 +660,10 @@ class GetOneArticle(Resource):
         article = DbTools.arti_se_objectid(ObjectId(article_ID))
         article['user'] = CustomTools.get_deref_userdata(article['user'])
         article['_id'] = str(article['_id'])
+        if article['ancestor']:
+            article['ancestor'] = str(article['ancestor'])
+        if article['parent']:
+            article['parent'] = str(article['parent'])
         del article["children"]  # 删除children防止报错
         success = {'success': True, 'article': article}
         return success
