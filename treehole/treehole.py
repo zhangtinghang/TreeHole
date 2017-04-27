@@ -1007,6 +1007,23 @@ class GetComment(Resource):
         # article.reverse()  # list倒序，不知道为什么前端那边会把数据倒置。
         success = {'success': True, 'article': article}
         return success
+
+
+class DailyPush(Resource):
+    def get(self):
+        user_id = ObjectId(request.args.get("id"))
+
+        userdata = DbTools.user_se_objectid(user_id)
+        if userdata is None:
+            return CustomTools.failure(6)
+        information = userdata["Information"]
+        CustomTools.batch_deref_info(information)
+        information["_id"] = str(userdata["_id"])
+        information["username"] = userdata["username"]
+        del information["message"]  # 阻止获取其他人的信息
+        del information["blacklist"]  # 阻止获取其他人的黑名单
+        success = {"success": True, "user": information}
+        return success
 # API
 api.add_resource(Login, '/api/login')
 api.add_resource(Register, '/api/register')
@@ -1028,6 +1045,8 @@ api.add_resource(BlackList, '/api/blackList')
 api.add_resource(PostComment, '/api/postComment')
 api.add_resource(GetComment, '/api/getComment')
 api.add_resource(UnBlackList, '/api/unBlackList')
+api.add_resource(DailyPush, '/api/dailyPush')
+
 
 if __name__ == '__main__':
     with open('host.txt', 'r') as f:
